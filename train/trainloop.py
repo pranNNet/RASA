@@ -299,17 +299,21 @@ def load_rollouts(data_cfg, steps):
                         for i in split_indices(data_cfg)['val']])
 
 if __name__ == '__main__':
-    torch.cuda.set_per_process_memory_fraction(0.95)   # limit PyTorch to about 4 GB
+    import argparse
+    p = argparse.ArgumentParser()
+    p.add_argument('--train', default='./train/train_config.yaml')
+    p.add_argument('--model', default='./experiments/rasa_main/config.yaml')
+    p.add_argument('--data', default='./train/dataset_config.yaml')
+    p.add_argument('--restart', action='store_true', help='resume from last.pt if it exists')
+    args = p.parse_args()
+ 
+    torch.cuda.set_per_process_memory_fraction(0.95)   # cap PyTorch at 95% of the GPU's memory
     torch.cuda.memory._record_memory_history(max_entries=100000)
     try:
-        train_RASA(train_cfg_path='./train/train_config.yaml',
-                model_cfg_path='./experiments/rasa_main/config.yaml',
-                data_cfg_path='./train/dataset_config.yaml')
+        train_RASA(train_cfg_path=args.train,
+                   model_cfg_path=args.model,
+                   data_cfg_path=args.data,
+                   restart=args.restart)
     except torch.cuda.OutOfMemoryError:
         torch.cuda.memory._dump_snapshot('oom.pickle')
         raise
-
-# if __name__ == '__main__':
-#     train_RASA(train_cfg_path='./train/train_config.yaml',
-#                model_cfg_path='./experiments/rasa_main/config.yaml',
-#                data_cfg_path='./train/dataset_config.yaml')
