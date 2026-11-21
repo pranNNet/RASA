@@ -45,6 +45,7 @@ def train_RASA(train_cfg_path, model_cfg_path, data_cfg_path, restart = False):
 
     ckpt_dir = os.path.join(train_cfg['run']['checkpoint_dir'], model_cfg['name'])
     os.makedirs(ckpt_dir, exist_ok=True)
+    os.makedirs(model_cfg['model_save_dir'], exist_ok=True)
 
     model = RASA(cfg = model_cfg).to(device)
     writer = SummaryWriter(os.path.join(train_cfg['log']['tensorboard_dir'], model_cfg['name']))
@@ -83,7 +84,7 @@ def train_RASA(train_cfg_path, model_cfg_path, data_cfg_path, restart = False):
     writer.flush()
     writer.close()
 
-    torch.save(model.state_dict(), os.path.join(model_cfg['model_save_dir'], f'model.pt'))
+    torch.save(model.state_dict(), os.path.join(model_save_dir, f'model.pt'))
     return model
 
 # ======================================================================================
