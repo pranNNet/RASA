@@ -84,7 +84,7 @@ def train_RASA(train_cfg_path, model_cfg_path, data_cfg_path, restart = False):
     writer.flush()
     writer.close()
 
-    torch.save(model.state_dict(), os.path.join(model_save_dir, f'model.pt'))
+    torch.save(model.state_dict(), os.path.join(model_cfg['model_save_dir'], f'model.pt'))
     return model
 
 # ======================================================================================
