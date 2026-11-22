@@ -26,6 +26,7 @@ class RASA(nn.Module):
         self.rho_inf = cfg['physics']['scale']['rho_inf']
         self.P_inf = cfg['physics']['scale']['P_inf']
         self.a_inf = (self.gamma * self.P_inf / self.rho_inf) ** 0.5
+        self.out_scale = self.a_inf * cfg['physics']['domain']['dt'] / min(cfg['physics']['domain']['Ly'], cfg['physics']['domain']['Lx'])
 
         self.Encoder = Encoder(
             N_tap = cfg['embed']['N_tap'],
@@ -118,7 +119,7 @@ class RASA(nn.Module):
             delta = self.Decoder(Eq)     # [Q, 4]
 
             # Residual update: Eq = Eq + delta
-            x_new = taps[:, CENTER] + delta     # [Q, 4]
+            x_new = taps[:, CENTER] + self.out_scale * delta     # [Q, 4]
             Xl = X.clone()
             Xl[b, :, i, j] = x_new
 

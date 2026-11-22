@@ -39,7 +39,7 @@ class Encoder(nn.Module):
         x_q = taps[:, CENTER]
 
         # TAP EMBEDDING
-        tap_diff = taps-x_q[:, None]
+        tap_diff = torch.asinh((taps - x_q[:, None]) / (2**l * self.dx))
 
         # pos encoding
         pos_off = self.offsets.expand(Q, 17, 2)
