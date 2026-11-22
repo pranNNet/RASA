@@ -6,7 +6,7 @@ sample_dir: data/samples
 gamma: 1.4
 step_stride: 1         # model step in snapshots (snapshot = k*dt = 5 * 5e-4 = 0.0025)
 split:                 # by sample index, in file order: train, then val, then test
-  train: 4 #120
-  val: 1 #5
-  test: 1 #15
+  train: 120
+  val: 15
+  test: 15
   
