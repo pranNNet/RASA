@@ -1,6 +1,7 @@
 # RASA model config
 
 name: v1_base
+type: RASA
 model_save_dir: ./experiments/rasa_main
 
 refine: 
@@ -19,7 +20,6 @@ attn:
   N_attn_layers: 2
   N_heads: 4
   N_hidden: 128
-
 
 decoder:
   N_hidden: 128

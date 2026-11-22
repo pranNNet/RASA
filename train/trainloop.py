@@ -14,6 +14,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from preprocess.data import load_config, load_window, sample_path, split_indices
 from model.rasa import RASA
+from model.rpa.rpa import RASA_RPA
 from train.dataset import RASADataset
 from train.loss import per_level_loss
 
@@ -47,7 +48,8 @@ def train_RASA(train_cfg_path, model_cfg_path, data_cfg_path, restart = False):
     os.makedirs(ckpt_dir, exist_ok=True)
     os.makedirs(model_cfg['model_save_dir'], exist_ok=True)
 
-    model = RASA(cfg = model_cfg).to(device)
+    model_type = RASA_RPA if model_cfg['type'] == 'RPA' else RASA
+    model = model_type(cfg = model_cfg).to(device)
     writer = SummaryWriter(os.path.join(train_cfg['log']['tensorboard_dir'], model_cfg['name']))
 
     # START AT BEGINNING OR AT LAST SAVED
@@ -302,9 +304,9 @@ def load_rollouts(data_cfg, steps):
 if __name__ == '__main__':
     import argparse
     p = argparse.ArgumentParser()
-    p.add_argument('--train', default='./train/train_config.yaml')
+    p.add_argument('--train', default='./experiments/rasa_main/train_config.yaml')
     p.add_argument('--model', default='./experiments/rasa_main/config.yaml')
-    p.add_argument('--data', default='./train/dataset_config.yaml')
+    p.add_argument('--data', default='./experiments/rasa_main/dataset_config.yaml')
     p.add_argument('--restart', action='store_true', help='resume from last.pt if it exists')
     args = p.parse_args()
  

@@ -1,0 +1,38 @@
+# RASA uniform-grid ablation config (copy of config.yaml)
+
+name: RASA_uniform128   # uniform-grid ablation: one level at 128x128. Not 'RPA' (trainloop picks the class by name)
+type: RASA
+model_save_dir: ./experiments/uniform
+
+refine: 
+  n_levels: 1 # ablation: no refinement. was 3 # M levels: 0 = dx, L1 = 2dx, L2 = 4dx, ... (L{M-1} = 2^(M-1) dx)
+  tol: 0.05
+  dilation: 1 #w: grow L0 by w coarse cells on each side
+
+stencil:
+
+embed:
+  N_tap: 6
+  N_query: 6
+
+attn:
+  d_model: 64
+  N_attn_layers: 2
+  N_heads: 4
+  N_hidden: 128
+
+decoder:
+  N_hidden: 128
+  N_out: 4 # [rho, u, v, P]
+
+physics:
+  gamma: 1.4
+  domain:
+    Lx: 1.0
+    Ly: 1.0
+    Nx: 128   # data coarsened 2x (preprocessing_uniform.yaml)
+    Ny: 128
+    dt: 0.0025
+  scale:
+    rho_inf: 1.0
+    P_inf: 1.0
