@@ -226,3 +226,4 @@ slurm
 data
 checkpoints
 runs
+*.mp4
