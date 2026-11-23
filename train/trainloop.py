@@ -14,7 +14,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from preprocess.data import load_config, load_window, sample_path, split_indices
 from model.rasa import RASA
-from model.rpa.rpa import RASA_RPA
+from model.rpa.rpa import RPA
 from train.dataset import RASADataset
 from train.loss import per_level_loss
 
@@ -48,7 +48,7 @@ def train_RASA(train_cfg_path, model_cfg_path, data_cfg_path, restart = False):
     os.makedirs(ckpt_dir, exist_ok=True)
     os.makedirs(model_cfg['model_save_dir'], exist_ok=True)
 
-    model_type = RASA_RPA if model_cfg['type'] == 'RPA' else RASA
+    model_type = RPA if model_cfg['type'] == 'RPA' else RASA
     model = model_type(cfg = model_cfg).to(device)
     writer = SummaryWriter(os.path.join(train_cfg['log']['tensorboard_dir'], model_cfg['name']))
 
@@ -310,7 +310,7 @@ if __name__ == '__main__':
     p.add_argument('--restart', action='store_true', help='resume from last.pt if it exists')
     args = p.parse_args()
  
-    torch.cuda.set_per_process_memory_fraction(0.95)   # cap PyTorch at 95% of the GPU's memory
+    torch.cuda.set_per_process_memory_fraction(0.99)   # cap PyTorch at 95% of the GPU's memory
     torch.cuda.memory._record_memory_history(max_entries=100000)
     try:
         train_RASA(train_cfg_path=args.train,
