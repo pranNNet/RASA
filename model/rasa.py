@@ -28,6 +28,14 @@ class RASA(nn.Module):
         self.a_inf = (self.gamma * self.P_inf / self.rho_inf) ** 0.5
         self.out_scale = self.a_inf * cfg['physics']['domain']['dt'] / min(cfg['physics']['domain']['Ly'], cfg['physics']['domain']['Lx'])
 
+        self.build_network(cfg)
+
+
+    def build_network(self, cfg):
+        '''
+        per-level network (encoder, attention, decoder). used to make RPA implementation better
+        '''
+
         self.Encoder = Encoder(
             N_tap = cfg['embed']['N_tap'],
             N_query = cfg['embed']['N_query'],
@@ -61,6 +69,28 @@ class RASA(nn.Module):
                             Y[:, 1] * self.a_inf,
                             Y[:, 2] * self.a_inf,
                             Y[:, 3].exp() * self.P_inf], dim=1)
+
+    def local_update(self, taps, l, return_attn=False):
+        '''
+        taps [Q, 17, 4] model variables, l level
+        ->
+        x_new [Q, 4] new model-variable values of the query cells,
+        W list of attention maps (empty if not return_attn). RPA overrides this.
+        '''
+        # Encoder
+        Eq, Et = self.Encoder(taps, l)      # [Q, d], [Q, 17, d]
+
+        # Attention Pass
+        if return_attn:
+            Eq, W = self.Attention(Eq, Et, return_attn = True)
+        else:
+            Eq, W = self.Attention(Eq, Et, return_attn = False), []
+
+        # Decoder predicts change
+        delta = self.Decoder(Eq)     # [Q, 4]
+
+        # Residual update: x_new = x_center + out_scale * delta
+        return taps[:, CENTER] + self.out_scale * delta, W
 
     def forward(self, X0, return_levels=False, return_attn=False):
         '''
@@ -106,20 +136,8 @@ class RASA(nn.Module):
                 attn.append([])
                 continue
 
-            # Encoder
-            Eq, Et = self.Encoder(taps, l)      # [Q, d], [Q, 17, d]
-
-            # Attention Pass
-            if return_attn:
-                Eq, W = self.Attention(Eq, Et, return_attn = True)
-            else:
-                Eq, W = self.Attention(Eq, Et, return_attn = False), []
-
-            # Decoder predicts change
-            delta = self.Decoder(Eq)     # [Q, 4]
-
-            # Residual update: Eq = Eq + delta
-            x_new = taps[:, CENTER] + self.out_scale * delta     # [Q, 4]
+            # network step: new values of the query cells
+            x_new, W = self.local_update(taps, l, return_attn)     # [Q, 4]
             Xl = X.clone()
             Xl[b, :, i, j] = x_new
 

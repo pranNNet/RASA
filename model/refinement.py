@@ -21,8 +21,8 @@ def grad_indicator(W):
 
     f = F.pad(W[:, [0, 3]], (1, 1, 1, 1), mode='replicate') # [B, 2, n+2, n+2]
 
-    dx = (f[..., 1:-1, 2:] - f[..., 1:-1, :-2]) / 2 # [B, 2, n, n]
-    dy = (f[..., 2:, 1:-1] - f[..., :-2, 1:-1]) / 2
+    dx = (f[..., 2:, 1:-1] - f[..., :-2, 1:-1]) / 2 # [B, 2, n, n]
+    dy = (f[..., 1:-1, 2:] - f[..., 1:-1, :-2]) / 2  # y along columns (dim 3, j)
 
     return torch.sqrt(dx**2 + dy**2).sum(dim=1)
 
