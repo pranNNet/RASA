@@ -5,7 +5,7 @@ Roll a trained RASA or RPA checkpoint out from frame 0 of one test sample and sa
 an animation: predicted log rho | true log rho | |error| | level map (0 = L0, 1 = L1, 2 = L2).
 
 Run from rasa/:
-python -m evaluation.animate_rollout --model ./experiments/rasa_main/config.yaml --ckpt checkpoints/v1_base/stage3_best.pt --sample 0 --steps 121 --out rollout.mp4
+python -m evaluation.animate_rollout --model ./experiments/rasa_main/config.yaml --ckpt checkpoints/v1_base/stage3_best.pt --sample 0 --steps 200 --out rollout.mp4
 --sample is the index inside the test split (0 = first test sample). Use .mp4 for --out if ffmpeg is installed.
 '''
 import matplotlib
@@ -13,6 +13,12 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.animation import FuncAnimation
+
+import argparse
+import torch
+from preprocess.data import load_config, load_window, sample_path, split_indices
+from model.rasa import RASA
+from model.rpa.rpa import RPA
 
 def rollout(model, X0, steps):
     '''
@@ -81,11 +87,7 @@ def animate(pred, true, levels, out, fps=10):
     plt.close(fig)
 
 if __name__ == '__main__':
-    import argparse
-    import torch
-    from preprocess.data import load_config, load_window, sample_path, split_indices
-    from model.rasa import RASA
-    # from model.rpa.rpa import RPA
+
 
     p = argparse.ArgumentParser()
     p.add_argument('--model', default='./experiments/rasa_main/config.yaml')

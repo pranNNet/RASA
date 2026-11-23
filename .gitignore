@@ -226,4 +226,6 @@ slurm
 data
 checkpoints
 runs
+plots
 *.mp4
+*.npz
