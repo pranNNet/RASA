@@ -12,7 +12,7 @@ score each step. Writes one <label>.npz per model to out_dir. T = steps, index k
   step_time     [T]        seconds per model step, mean over samples
 Scoring stops at blowup (later values stay NaN).
 
-Run from rasa/:  python -m eval.evaluate --config configs/eval_config.yaml
+Run from rasa/:  python -m evaluation.evaluate --config evaluation/eval_config.yaml
 '''
 import os
 import time
@@ -126,7 +126,7 @@ def load_model(model_cfg, device='cpu'):
     import torch
     from model.rasa import RASA
     from model.rpa.rpa import RPA
-    Model = {'RASA': RASA, 'RPA': RPA}.get(model_cfg['name'], RASA)   # e.g. RASA_uniform128 -> RASA
+    Model = {'RASA': RASA, 'RPA': RPA}.get(model_cfg['type'], RASA)   # e.g. RASA_uniform128 -> RASA
     model = Model(model_cfg).to(device)
     path = os.path.join(model_cfg['model_save_dir'], 'model.pt')
     model.load_state_dict(torch.load(path, map_location=device))
@@ -136,7 +136,7 @@ if __name__ == '__main__':
     import argparse
     import torch
     p = argparse.ArgumentParser()
-    p.add_argument('--config', default='evaluation/eval_config.yaml')
+    p.add_argument('--config', default='evaluation/configs/eval_config.yaml')
     args = p.parse_args()
 
     ev = load_config(args.config)

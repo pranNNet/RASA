@@ -2,7 +2,7 @@
 
 data: experiments/rasa_main/dataset_config.yaml   # sample_dir, split, gamma, step_stride (truth is read at full res)
 split: test
-steps: 120          # rollout steps from frame 0
+steps: 200          # rollout steps from frame 0
 score_res: 128      # prediction and truth are box-averaged to this before scoring
 shock:
   threshold: 0.1    # shock cell: per-cell |grad log P| above this
@@ -12,9 +12,8 @@ out_dir: results/   # one <label>.npz per model
 models:
   - label: RASA
     config: experiments/rasa_main/config.yaml
-  - label: RASA1
-    config: experiments/rasa_main/config.yaml
-  # - label: RPA
-  #   config: experiments/rpa/config.yaml
+  - label: RPA
+    config: experiments/rpa/config.yaml
   # - label: Uniform128
   #   config: experiments/uniform/config.yaml
+    

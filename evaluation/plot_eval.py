@@ -5,7 +5,7 @@ Plot any number of evaluate.py results files: one curve per model (mean over sam
 vs step, and a summary table. Never loads a model.
 Means skip NaN, so samples that blew up drop out after their blowup step (see the blowups column).
 
-Run from rasa/:  python -m eval.plot_eval results/*.npz --out plots/
+Run from rasa/:  python -m evaluation.plot_eval results/*.npz
 '''
 import os
 
