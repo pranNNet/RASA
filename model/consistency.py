@@ -58,9 +58,13 @@ def pool_mask(M):
 
 def upsample(U):
     '''
-    Bilinear 2x upsample [B, h, 4, w] -> [B, 4, 2h, 2w]
+    Bilinear 2x upsample [B, 4, h, w] -> [B, 4, 2h, 2w], then each 2x2 block is shifted
+    so it averages exactly back to its coarse cell (v1.1, M1). Without the shift,
+    upsample then avg_pool2d blurs by [1/8, 3/4, 1/8] per direction.
     '''
-    return F.interpolate(U, scale_factor=2, mode='bilinear', align_corners = False)
+    up = F.interpolate(U, scale_factor=2, mode='bilinear', align_corners = False)
+    err = U - F.avg_pool2d(up, 2)                                   # [B, 4, h, w]
+    return up + err.repeat_interleave(2, dim=-2).repeat_interleave(2, dim=-1)
 
 def level_consistency(Xs, Ms, gamma = 1.4):
     '''

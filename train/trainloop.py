@@ -86,7 +86,11 @@ def train_RASA(train_cfg_path, model_cfg_path, data_cfg_path, restart = False):
     writer.flush()
     writer.close()
 
-    torch.save(model.state_dict(), os.path.join(model_cfg['model_save_dir'], f'model.pt'))
+# final model = best checkpoint of the last stage, not the last epoch
+    best = os.path.join(ckpt_dir, f'{STAGES[-1]}_best.pt')
+    model.load_state_dict(torch.load(best, map_location=device))
+    torch.save(model.state_dict(), os.path.join(model_cfg['model_save_dir'], f'model.pt'))    
+    
     return model
 
 # ======================================================================================
@@ -105,6 +109,8 @@ def run_stage(model, stage_name,
     num_workers = train_cfg['batch']['num_workers']
 
     boundary_weight = train_cfg['loss']['boundary_weight']
+    level_weight = train_cfg['loss']['level_weight']
+    grad_weight = train_cfg['loss']['grad_weight']
     metric = 'val_loss' if stage_name =='stage1' else 'rollout_l1'
 
     # LOAD DATA
@@ -170,6 +176,8 @@ def run_stage(model, stage_name,
                 x=x.to(device),
                 K=K,
                 boundary_weight=boundary_weight,
+                level_weight=level_weight,
+                grad_weight=grad_weight,
                 clip=train_cfg['optim']['grad_clip']
             )
             step += 1
@@ -180,7 +188,7 @@ def run_stage(model, stage_name,
                            'train/grad_norm': grad_norm,
                            'train/lr': scheduler.get_last_lr()[0],
                            'train/K': K}
-                for k, v in parts.items():      # level0, level1, ... or log_rho, u, v, log_P
+                for k, v in parts.items():      # level0, level1, ..., log_rho, u, v, log_P, grad
                     group = 'level_loss' if k.startswith('level') else 'physics_loss'
                     scalars[f'{group}/{k}'] = v
                 scalars.update({f'queries/level{l}': int(M.sum()) for l, M in enumerate(out['masks'])})
@@ -193,6 +201,8 @@ def run_stage(model, stage_name,
             rollouts=rollouts,
             batch_size=batch_size,
             boundary_weight=boundary_weight,
+            level_weight=level_weight,
+            grad_weight=grad_weight,
             device=device
         )
 
@@ -220,7 +230,7 @@ def run_stage(model, stage_name,
 
     return step
 
-def train_step(model, optimizer, scheduler, x, K, boundary_weight, clip):
+def train_step(model, optimizer, scheduler, x, K, boundary_weight, level_weight, grad_weight, clip):
     '''
     x [B, K_max+1, 4, N, N] raw frames. K-1 steps without grad, then one trained step.
     -> loss, parts, grad norm before clipping, out
@@ -231,8 +241,9 @@ def train_step(model, optimizer, scheduler, x, K, boundary_weight, clip):
        for _ in range(K-1):
            X = X + model(X)
 
-    _, out = model(X, return_levels=True)
-    loss, parts = per_level_loss(model, out, x[:, K], boundary_weight)
+    dX, out = model(X, return_levels=True)
+    loss, parts = per_level_loss(model, out, x[:, K], boundary_weight,
+                                 level_weight=level_weight, grad_weight=grad_weight, X_pred=X + dX)
 
     optimizer.zero_grad(set_to_none=True)
     loss.backward()
@@ -242,7 +253,7 @@ def train_step(model, optimizer, scheduler, x, K, boundary_weight, clip):
     return loss.item(), parts, grad_norm.item(), out
 
 @torch.no_grad()
-def validate(model,val_DL, rollouts, batch_size, boundary_weight, device = 'cpu'):
+def validate(model,val_DL, rollouts, batch_size, boundary_weight, level_weight, grad_weight, device = 'cpu'):
     '''
     -> metrics, and (predicted X, true X, masks) of val sample 0 at the last rollout step
     '''
@@ -255,7 +266,8 @@ def validate(model,val_DL, rollouts, batch_size, boundary_weight, device = 'cpu'
         X0, X1 = x[:, 0].to(device), x[:, 1].to(device)
         dX, out = model(X0, return_levels=True)
 
-        losses.append(per_level_loss(model, out, X1, boundary_weight)[0].item())
+        losses.append(per_level_loss(model, out, X1, boundary_weight,
+                                     level_weight=level_weight, grad_weight=grad_weight, X_pred=X0 + dX)[0].item())
         L1s.append((mv(X0 + dX) - mv(X1)).abs().mean().item())
 
     # rollouty from fram 0 of each val sample, scored at the last step
