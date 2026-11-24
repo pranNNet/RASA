@@ -1,6 +1,6 @@
 # RASA model config
 
-name: v1_RPA
+name: v1.1_RPA
 type: RPA
 model_save_dir: ./experiments/rpa
 

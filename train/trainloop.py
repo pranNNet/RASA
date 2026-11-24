@@ -90,7 +90,7 @@ def train_RASA(train_cfg_path, model_cfg_path, data_cfg_path, restart = False):
     best = os.path.join(ckpt_dir, f'{STAGES[-1]}_best.pt')
     model.load_state_dict(torch.load(best, map_location=device))
     torch.save(model.state_dict(), os.path.join(model_cfg['model_save_dir'], f'model.pt'))    
-    
+
     return model
 
 # ======================================================================================
@@ -316,9 +316,9 @@ def load_rollouts(data_cfg, steps):
 if __name__ == '__main__':
     import argparse
     p = argparse.ArgumentParser()
-    p.add_argument('--train', default='./experiments/rasa_main/train_config.yaml')
-    p.add_argument('--model', default='./experiments/rasa_main/config.yaml')
-    p.add_argument('--data', default='./experiments/rasa_main/dataset_config.yaml')
+    p.add_argument('--train', default='./experiments/rpa/train_config.yaml')
+    p.add_argument('--model', default='./experiments/rpa/config.yaml')
+    p.add_argument('--data', default='./experiments/rpa/dataset_config.yaml')
     p.add_argument('--restart', action='store_true', help='resume from last.pt if it exists')
     args = p.parse_args()
  
