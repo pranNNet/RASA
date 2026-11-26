@@ -6,6 +6,7 @@ Full RASAv1 model
 '''
 import torch
 import torch.nn as nn
+from torch.utils.checkpoint import checkpoint
 
 from model.embed import Encoder
 from model.attention import CrossAttention
@@ -92,6 +93,30 @@ class RASA(nn.Module):
         # Residual update: x_new = x_center + out_scale * delta
         return taps[:, CENTER] + self.out_scale * delta, W
 
+    def chunked_update(self, taps, l, return_attn=False):
+        '''
+        local_update in chunks of execution.chunk_size cells (none set = one chunk).
+        With execution.checkpoint and grad on, each chunk keeps only its inputs and
+        redoes its forward pass during backward. Same outputs as local_update.
+        '''
+        ex = self.cfg.get('execution', {})
+        size = ex.get('chunk_size') or len(taps)
+        ckpt = ex.get('checkpoint', False) and torch.is_grad_enabled() and not return_attn
+
+        xs, Ws = [], []
+        for t in taps.split(size):
+            if ckpt:
+                x, W = checkpoint(self.local_update, t, l, use_reentrant=False)
+            else:
+                x, W = self.local_update(t, l, return_attn)
+            xs.append(x)
+            Ws.append(W)
+
+        # attention maps: one list per chunk -> one tensor per layer
+        W = [torch.cat(w) for w in zip(*Ws)]
+        return torch.cat(xs), W
+
+
     def forward(self, X0, return_levels=False, return_attn=False):
         '''
         X0 [B, 4, Nx, Ny] primatives U (rho, u, v, P) on finest
@@ -137,7 +162,8 @@ class RASA(nn.Module):
                 continue
 
             # network step: new values of the query cells
-            x_new, W = self.local_update(taps, l, return_attn)     # [Q, 4]
+            # x_new, W = self.local_update(taps, l, return_attn)     # [Q, 4]
+            x_new, W = self.chunked_update(taps, l, return_attn)     # [Q, 4]
             Xl = X.clone()
             Xl[b, :, i, j] = x_new
 

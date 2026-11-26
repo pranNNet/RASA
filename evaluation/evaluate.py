@@ -10,9 +10,11 @@ score each step. Writes one <label>.npz per model to out_dir. T = steps, index k
   blowup_step   [S]        first step with NaN/inf or rho, P <= 0 (-1 if none)
   queries       [S, T, L]  query cells per level (sums of out['masks'])
   step_time     [T]        seconds per model step, mean over samples
+  spectrum_pred, spectrum_true [S, P, n_k]  kinetic energy spectrum at the P steps in ev['spectrum']['steps'],
+                                            spectrum_steps [P] (only if ev has a 'spectrum' block)
 Scoring stops at blowup (later values stay NaN).
 
-Run from rasa/:  python -m evaluation.evaluate --config evaluation/eval_config.yaml
+Run from rasa/:  python -m evaluation.evaluate --config evaluation/configs/eval_config.yaml
 '''
 import os
 import time
@@ -54,6 +56,30 @@ def shock_cells(W, threshold):
     gx, gy = np.gradient(np.log(W[3]))
     return np.hypot(gx, gy) > threshold
 
+def ke_spectrum(W, region=None):
+    '''
+    raw primitives [4, N, N] -> E [n//2]: density-weighted kinetic energy spectrum of w = sqrt(rho) (u, v)
+    (Kida & Orszag), summed over rings of integer |k| (cycles per region), k = 0..n/2-1.
+    region [x0, x1, y0, y1] as fractions of the domain (None = whole domain); must be square.
+    The domain is not periodic, so w minus its mean is tapered to zero at the edges (Hann window) before the FFT.
+    '''
+    if region is not None:
+        N = W.shape[-1]
+        x0, x1, y0, y1 = (int(round(f * N)) for f in region)
+        W = W[:, x0:x1, y0:y1]
+    n = W.shape[-1]
+    assert W.shape[-2] == n, 'spectrum region must be square'
+    win = np.outer(np.hanning(n), np.hanning(n))
+    k = np.fft.fftfreq(n, 1 / n)
+    K = np.rint(np.hypot(*np.meshgrid(k, k, indexing='ij'))).astype(int)
+    keep = K < n // 2
+    E = np.zeros(n // 2)
+    for c in (1, 2):
+        w = np.sqrt(W[0]) * W[c]
+        p = 0.5 * np.abs(np.fft.fft2((w - w.mean()) * win)) ** 2 / n ** 4
+        E += np.bincount(K[keep], p[keep], minlength=n // 2)
+    return E
+
 def reference_totals(W0, gamma, sc):
     '''true frame 0 -> scale per conserved variable: mean mass, mean mass * c_inf (twice), mean energy'''
     c_inf = (gamma * sc['P_inf'] / sc['rho_inf']) ** 0.5
@@ -93,6 +119,9 @@ def evaluate_model(model, model_cfg, data_cfg, ev, device='cpu'):
          'shock_overlap': np.full((S, T), np.nan), 'totals_err': np.full((S, T, 4), np.nan),
          'blowup_step': np.full(S, -1), 'queries': np.full((S, T, n_lev), np.nan)}
     times = np.full((S, T), np.nan)
+    sp = ev.get('spectrum')   # optional
+    if sp:
+        r['spectrum_steps'] = np.array(sp['steps'])
 
     for s, i in enumerate(idx):
         raw = load_window(sample_path(data_cfg, i), 0, T, data_cfg['step_stride'], gamma)   # [<=T+1, 4, N, N]
@@ -116,6 +145,12 @@ def evaluate_model(model, model_cfg, data_cfg, ev, device='cpu'):
                 break
             r['l1'][s, k], r['l1_shock_band'][s, k], r['shock_overlap'][s, k], r['totals_err'][s, k] = \
                 score_step(box_average(p, R, gamma), true[k + 1], ref, gamma, sc, thr, band)
+
+            if sp and k + 1 in sp['steps']:   # on the model grid: box-averaging to R would hide grid noise
+                j = sp['steps'].index(k + 1)
+                for who, A in (('pred', p), ('true', box_average(raw[k + 1].astype(np.float64), Nx, gamma))):
+                    E = ke_spectrum(A, sp['region'])
+                    r.setdefault(f'spectrum_{who}', np.full((S, len(sp['steps']), len(E)), np.nan))[s, j] = E
 
     done = np.isfinite(times).sum(axis=0)   # samples that reached each step
     r['step_time'] = np.where(done > 0, np.nansum(times, axis=0) / np.maximum(done, 1), np.nan)

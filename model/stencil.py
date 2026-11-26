@@ -4,6 +4,7 @@ stencil.py
 gathers the 17 taps per query cell, one level at a time 
 '''
 import torch
+import torch.nn.functional as F
 
 # (di, dj) in index units of level being gathered 
 OFFSETS = torch.tensor(
@@ -20,15 +21,16 @@ def gather_stencil(X, M):
     ->
     taps [Q, 17, C], (b, i, j) each [Q]
 
-    - Q = number of 'True' cells in M. indicices outside grid are clamped to edge (no ghost/padding cells?)
+    - Q = number of 'True' cells in M, in row-major order (same as M.nonzero)
+    - dense build: pad once by 2 with edge values, take 17 shifted slices, then keep the masked cells.
+      Edge padding = the old index clamp (cells past the edge read the nearest edge cell).
     '''
-    n = X.shape[-1]
-
     b, i, j = M.nonzero(as_tuple=True)      # [Q] each
-    di, dj = OFFSETS[:, 0].to(X.device), OFFSETS[:, 1].to(X.device)
+    nx, ny = X.shape[-2:]
 
-    # row and columns of every tap
-    ii = (i[:, None] + di).clamp(0, n-1)        # [Q, 17]
-    jj = (j[:, None] + dj).clamp(0, n-1)        # clamp used to ensure edge cells stays at nearest edge
-    taps = X.permute(0, 2, 3, 1)[b[:, None], ii, jj] # [Q, 17, C]
-    return taps, (b, i, j)
+    Xp = F.pad(X, (2, 2, 2, 2), mode='replicate').permute(0, 2, 3, 1)    # [B, nx+4, ny+4, C]
+    dense = torch.stack([Xp[:, 2 + di: 2 + di + nx, 2 + dj: 2 + dj + ny]
+                         for di, dj in OFFSETS.tolist()], dim=-2)       # [B, nx, ny, 17, C]
+    return dense[M], (b, i, j)
+
+

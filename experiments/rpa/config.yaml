@@ -9,6 +9,10 @@ refine:
   tol: 0.05
   dilation: 1 #w: grow L0 by w coarse cells on each side
 
+execution:
+  chunk_size: 32768
+  checkpoint: True
+
 stencil:
 
 embed:

@@ -1,0 +1,23 @@
+# Head hypotheses config (eval/head_hypotheses.py), for RASA or RPA. One model step per frame, no rollout.
+model: experiments/rpav1.1/config.yaml       # weights from <model_save_dir>/model.pt, as evaluate.py
+data: experiments/rpav1.1/dataset_config.yaml
+eval: evaluation/configs/eval_config.yaml   # shock.threshold, shock.band and score_res are read from here
+
+split: test
+samples: 3                       # first n samples of the split
+frames: [30, 60, 90]             # start frames per sample (each needs the next frame as truth)
+seed: 0
+
+n_cells: 1000        # query cells sampled per level per frame (cost: one gradient pass per head per level)
+smooth_max: 0.02     # smooth cell: per-cell |grad log rho| and |grad log P| both below this (H1, H3)
+n_per_type: 200      # H2 patterns: shock / smooth cells picked on the top level per frame
+example_heads: null  # H2 patterns: list of head names, e.g. ["router 1 h0", "stencil h12"]; null = most important head + most self-similar important head
+
+n_boot: 1000         # resamples of the frames for the 90% intervals
+ci: 0.9
+untrained_reference: true   # grey band in h2_level_dependence.png (runs a freshly initialised model)
+min_effect:          # smallest effect that gets a role label in h3_roles.md. Starting guesses.
+  physics: 0.02      # increase in the relative physics error without the head
+  smoothing: 0.1     # change in smoothing without the head, in units of a first-order upwind scheme's smoothing
+
+out_dir: results/attn/   # results go to out_dir/<model name>/

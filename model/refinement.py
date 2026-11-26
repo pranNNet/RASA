@@ -48,7 +48,7 @@ def down(r):
     '''
     return F.max_pool2d(r.float()[:, None], 2)[:, 0].bool()
 
-def refinement_masks(levels, tol, w):
+def refinement_masks(levels, tol, w, indicator = 'lvf'):
     '''
     levels: list of M primative arrays (fine -> coarse)
         - levels[l] : [B, 4, N/2^l, N/2^l]

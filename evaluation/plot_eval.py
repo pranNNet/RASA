@@ -74,6 +74,27 @@ def plot_metric(results, key, out):
     fig.savefig(os.path.join(out, f'{key}.png'), dpi=120)
     plt.close(fig)
 
+def plot_spectrum(results, out):
+    '''Kinetic energy spectrum (mean over samples) at each saved step: one line per model, truth dashed.
+    Assumes all models used the same spectrum steps, region and samples.'''
+    results = {label: r for label, r in results.items() if 'spectrum_pred' in r}
+    if not results:
+        return
+    first = next(iter(results.values()))
+    steps = first['spectrum_steps']
+    fig, axes = plt.subplots(1, len(steps), figsize=(4 * len(steps), 3.5), squeeze=False)
+    for j, (s, ax) in enumerate(zip(steps, axes[0])):
+        for label, r in results.items():
+            E = np.nanmean(r['spectrum_pred'][:, j], axis=0)
+            ax.loglog(np.arange(1, len(E)), E[1:], label=label)   # k = 0 (the mean) left out
+        E = np.nanmean(first['spectrum_true'][:, j], axis=0)
+        ax.loglog(np.arange(1, len(E)), E[1:], 'k--', label='true')
+        ax.set(title=f'step {s}', xlabel='wavenumber k (cycles per region)', ylabel='E(k)')
+    axes[0, 0].legend()
+    fig.tight_layout()
+    fig.savefig(os.path.join(out, 'spectrum.png'), dpi=120)
+    plt.close(fig)
+
 def summary_table(results, steps):
     '''Markdown table: mean L1 (all vars), shock IoU, energy error at the given steps, plus blowups,
     mean queries and mean step time.'''
@@ -100,6 +121,7 @@ def main(files, out, steps=(1, 10, 30, 60, 120)):
         __import__('warnings').simplefilter('ignore', RuntimeWarning)   # all-NaN steps after blowups
         for key in PLOTS:
             plot_metric(results, key, out)
+        plot_spectrum(results, out)
         table = summary_table(results, steps)
     with open(os.path.join(out, 'summary.md'), 'w') as f:
         f.write(table + '\n')

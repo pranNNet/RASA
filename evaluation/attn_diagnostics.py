@@ -23,7 +23,7 @@ H3  What role does each head play? (a head can do physics, numerics, both or nei
     h3_roles.png  per head: physics it provides vs smoothing it provides (dot size = importance), with a zoom
     h3_roles.md   the same as a table with 90% intervals and a role label
 
-Run from rasa/:  python -m eval.attn_diagnostics --config configs/attn_diag.yaml [--model configs/rpa.yaml]
+Run from rasa/:  python -m eval.attn_diagnostics --config evaluation/configs/attn_diag.yaml [--model configs/rpa.yaml]
 '''
 import os
 import warnings
