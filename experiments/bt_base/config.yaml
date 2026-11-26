@@ -2,7 +2,7 @@
 
 name: BT-RASA-base
 type: BT-RASA-base
-model_save_dir: ./experiments/rasa
+model_save_dir: ./experiments/bt_base
 
 refine:
   n_levels: 3 # M levels: 0 = dx, L1 = 2dx, L2 = 4dx, ... (L{M-1} = 2^(M-1) dx)

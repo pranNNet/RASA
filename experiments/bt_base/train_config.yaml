@@ -1,7 +1,7 @@
 # RASA training config. All values are starting guesses, to tune.
  
 data:
-  config: ./experiments/rain/dataset_config.yaml   # sample_dir, split, gamma, step_stride
+  config: ./experiments/bt_base/dataset_config.yaml   # sample_dir, split, gamma, step_stride
 
 batch:
   size: 16   # 2-4 locally (8 GB), 8-16 on A100/A6000
