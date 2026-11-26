@@ -6,6 +6,7 @@ Run from rasa/:  python -m train.train configs/training.yaml
 '''
 import os
 import sys
+import time
 
 import torch
 from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
@@ -15,10 +16,14 @@ from torch.utils.tensorboard import SummaryWriter
 from preprocess.data import load_config, load_window, sample_path, split_indices
 from model.rasa import RASA
 from model.rpa.rpa import RPA
+# from model.rpac.rpac import RPAC
+# from model.rfa.rfa import RFA
+# from model.bt_rasa.bt_rasa import BTRASA, BTRASABase
 from train.dataset import RASADataset
 from train.loss import per_level_loss
 
 STAGES = ['stage1', 'stage2', 'stage3'] #should be an input parameter to the training
+MODELS = {'RASA': RASA, 'RPA': RPA} #, 'RPAC': RPAC, 'RFA': RFA, 'BT-RASA': BTRASA, 'BT-RASA-base': BTRASABase}   # model_cfg['type'] -> class
 
 # Helper
 def full_fp32(seed):
@@ -48,7 +53,7 @@ def train_RASA(train_cfg_path, model_cfg_path, data_cfg_path, restart = False):
     os.makedirs(ckpt_dir, exist_ok=True)
     os.makedirs(model_cfg['model_save_dir'], exist_ok=True)
 
-    model_type = RPA if model_cfg['type'] == 'RPA' else RASA
+    model_type = MODELS[model_cfg['type']]
     model = model_type(cfg = model_cfg).to(device)
     writer = SummaryWriter(os.path.join(train_cfg['log']['tensorboard_dir'], model_cfg['name']))
 
@@ -86,11 +91,10 @@ def train_RASA(train_cfg_path, model_cfg_path, data_cfg_path, restart = False):
     writer.flush()
     writer.close()
 
-# final model = best checkpoint of the last stage, not the last epoch
+    # final model = best checkpoint of the last stage, not the last epoch
     best = os.path.join(ckpt_dir, f'{STAGES[-1]}_best.pt')
     model.load_state_dict(torch.load(best, map_location=device))
-    torch.save(model.state_dict(), os.path.join(model_cfg['model_save_dir'], f'model.pt'))    
-
+    torch.save(model.state_dict(), os.path.join(model_cfg['model_save_dir'], f'model.pt'))
     return model
 
 # ======================================================================================
@@ -169,6 +173,11 @@ def run_stage(model, stage_name,
         for x in train_DL:
             
             K = int(torch.randint(1, train_cfg[stage_name]['K_max'] + 1, ()))
+            cuda = device == 'cuda'
+            if cuda:
+                torch.cuda.synchronize()
+                torch.cuda.reset_peak_memory_stats()
+            t0 = time.perf_counter()
             loss, parts, grad_norm, out = train_step(
                 model=model,
                 optimizer=optimizer,
@@ -180,6 +189,9 @@ def run_stage(model, stage_name,
                 grad_weight=grad_weight,
                 clip=train_cfg['optim']['grad_clip']
             )
+            if cuda:
+                torch.cuda.synchronize()
+            step_time = time.perf_counter() - t0
             step += 1
 
             # logging train
@@ -187,11 +199,17 @@ def run_stage(model, stage_name,
                 scalars = {'train/loss': loss,
                            'train/grad_norm': grad_norm,
                            'train/lr': scheduler.get_last_lr()[0],
-                           'train/K': K}
+                           'train/K': K,
+                           'perf/step_time_s': step_time,             # one optimiser step (K model steps)
+                           'perf/time_per_model_step_s': step_time / K}
+                if cuda:
+                    scalars['perf/peak_mem_GB'] = torch.cuda.max_memory_allocated() / 1e9
                 for k, v in parts.items():      # level0, level1, ..., log_rho, u, v, log_P, grad
                     group = 'level_loss' if k.startswith('level') else 'physics_loss'
                     scalars[f'{group}/{k}'] = v
                 scalars.update({f'queries/level{l}': int(M.sum()) for l, M in enumerate(out['masks'])})
+                # conservative variants: floored cells per level (the only step that breaks conservation)
+                scalars.update({f'floor/level{l}': n for l, n in enumerate(out.get('floor', []))})
                 for k, v in scalars.items():
                     writer.add_scalar(k, v, step)
 
@@ -316,19 +334,19 @@ def load_rollouts(data_cfg, steps):
 if __name__ == '__main__':
     import argparse
     p = argparse.ArgumentParser()
-    p.add_argument('--train', default='./experiments/rpa/train_config.yaml')
-    p.add_argument('--model', default='./experiments/rpa/config.yaml')
-    p.add_argument('--data', default='./experiments/rpa/dataset_config.yaml')
+    p.add_argument('--train', default='./experiments/rasa_main/train_config.yaml')
+    p.add_argument('--model', default='./experiments/rasa_main/config.yaml')
+    p.add_argument('--data', default='./experiments/rasa_main/dataset_config.yaml')
     p.add_argument('--restart', action='store_true', help='resume from last.pt if it exists')
     args = p.parse_args()
  
-    torch.cuda.set_per_process_memory_fraction(0.99)   # cap PyTorch at 95% of the GPU's memory
-    torch.cuda.memory._record_memory_history(max_entries=100000)
-    try:
-        train_RASA(train_cfg_path=args.train,
-                   model_cfg_path=args.model,
-                   data_cfg_path=args.data,
-                   restart=args.restart)
-    except torch.cuda.OutOfMemoryError:
-        torch.cuda.memory._dump_snapshot('oom.pickle')
-        raise
+    # torch.cuda.set_per_process_memory_fraction(0.99)   # cap PyTorch at 95% of the GPU's memory
+    # torch.cuda.memory._record_memory_history(max_entries=100000)
+    # try:
+    train_RASA(train_cfg_path=args.train,
+                model_cfg_path=args.model,
+                data_cfg_path=args.data,
+                restart=args.restart)
+    # except torch.cuda.OutOfMemoryError:
+    #     torch.cuda.memory._dump_snapshot('oom.pickle')
+    #     raise
