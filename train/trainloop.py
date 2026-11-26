@@ -18,12 +18,12 @@ from model.rasa import RASA
 from model.rpa.rpa import RPA
 # from model.rpac.rpac import RPAC
 # from model.rfa.rfa import RFA
-from model.bt_rasa.bt_rasa import BTRASA
+from model.bt_rasa.bt_rasa import BTRASA, BTRASABase
 from train.dataset import RASADataset
 from train.loss import per_level_loss
 
 STAGES = ['stage1', 'stage2', 'stage3'] #should be an input parameter to the training
-MODELS = {'RASA': RASA, 'RPA': RPA, 'BT-RASA': BTRASA} #'RPAC': RPAC, 'RFA': RFA,    # model_cfg['type'] -> class
+MODELS = {'RASA': RASA, 'RPA': RPA, 'BT-RASA': BTRASA, 'BT-RASA-base': BTRASABase}   #'RPAC': RPAC, 'RFA': RFA, model_cfg['type'] -> class
 
 # Helper
 def full_fp32(seed):
@@ -334,9 +334,9 @@ def load_rollouts(data_cfg, steps):
 if __name__ == '__main__':
     import argparse
     p = argparse.ArgumentParser()
-    p.add_argument('--train', default='./experiments/bt_rasa/train_config.yaml')
-    p.add_argument('--model', default='./experiments/bt_rasa/config.yaml')
-    p.add_argument('--data', default='./experiments/bt_rasa/dataset_config.yaml')
+    p.add_argument('--train', default='./experiments/rasa/train_config.yaml')
+    p.add_argument('--model', default='./experiments/rasa/config.yaml')
+    p.add_argument('--data', default='./experiments/rasa/dataset_config.yaml')
     p.add_argument('--restart', action='store_true', help='resume from last.pt if it exists')
     args = p.parse_args()
  
