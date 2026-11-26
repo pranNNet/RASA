@@ -1,0 +1,49 @@
+# BT-RASA model config (v2). Same as experiments/RASA/config.yaml except type, name, save dir and tap_lift.
+
+name: BT-RASA
+type: BT-RASA
+model_save_dir: ./experiments/bt_rasa
+
+refine:
+  n_levels: 3 # M levels: 0 = dx, L1 = 2dx, L2 = 4dx, ... (L{M-1} = 2^(M-1) dx)
+  tol: 0.05
+  dilation: 1 #w: grow L0 by w coarse cells on each side
+  block_size: 4 # B: round each level's region up to B x B blocks of that level
+
+stencil:
+
+embed:
+  N_tap: 6
+  N_query: 4  # Mach (2), level, cfl
+
+tap_lift:     # tap features (6) -> N_lift -> F tap tokens psi, then LayerNorm
+  N_lift: 32
+  F: 32
+
+attn:         # folded router
+  d_model: 64
+  N_attn_layers: 2
+  N_heads: 4
+  N_hidden: 128   # query feed-forward (64 is the cheaper option)
+
+stencil_heads:  # keyed on psi (F numbers)
+  N_heads: 16
+  d_k: 8
+  r_max: 2.0
+
+execution:
+  chunk_size: 32768   # cells per network pass (null = all at once). Keep a multiple of block_size^2 so chunks hold whole tiles
+  checkpoint: true    # recompute each chunk in backward to save memory (training only)
+  block_pad: 64       # active block count rounded up to a multiple of this (fixed shapes)
+
+physics:
+  gamma: 1.4
+  domain:
+    Lx: 1.0
+    Ly: 1.0
+    Nx: 256
+    Ny: 256
+    dt: 0.0025
+  scale:
+    rho_inf: 1.0
+    P_inf: 1.0

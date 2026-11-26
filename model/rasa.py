@@ -16,8 +16,6 @@ from model.consistency import build_levels, level_consistency
 from model.refinement import refinement_masks
 from model.stencil import gather_stencil, CENTER
 
-
-
 class RASA(nn.Module):
     def __init__(self, cfg):
         super().__init__()
@@ -30,7 +28,6 @@ class RASA(nn.Module):
         self.out_scale = self.a_inf * cfg['physics']['domain']['dt'] / min(cfg['physics']['domain']['Ly'], cfg['physics']['domain']['Lx'])
 
         self.build_network(cfg)
-
 
     def build_network(self, cfg):
         '''
@@ -93,6 +90,14 @@ class RASA(nn.Module):
         # Residual update: x_new = x_center + out_scale * delta
         return taps[:, CENTER] + self.out_scale * delta, W
 
+    def gather(self, X, M):
+        '''
+        X [B, C, n, n], M [B, n, n] -> taps [Q, 17, C], (b, i, j), keep [Q] bool or None
+        keep: which computed cells are written back (None = all). BT-RASA overrides this with tiles.
+        '''
+        taps, idx = gather_stencil(X, M)
+        return taps, idx, None
+
     def chunked_update(self, taps, l, return_attn=False):
         '''
         local_update in chunks of execution.chunk_size cells (none set = one chunk).
@@ -115,7 +120,6 @@ class RASA(nn.Module):
         # attention maps: one list per chunk -> one tensor per layer
         W = [torch.cat(w) for w in zip(*Ws)]
         return torch.cat(xs), W
-
 
     def forward(self, X0, return_levels=False, return_attn=False):
         '''
@@ -144,15 +148,15 @@ class RASA(nn.Module):
         Ms = refinement_masks(
             levels = Xs,
             tol = self.cfg['refine']['tol'],
-            w = self.cfg['refine']['dilation']
+            w = self.cfg['refine']['dilation'],
+            B = self.cfg['refine'].get('block_size')     # BT-RASA: None = per-cell masks
         )
-
 
         # ---- one network pass per level ----
         X_new, levels, attn = [], [], []
         for l, (X, M) in enumerate(zip(Xs, Ms)):
             #17 taps of every query cell at curr level, read from curr state
-            taps, (b, i, j) = gather_stencil(X, M) # [Q, 17, 4], [Q] x3
+            taps, (b, i, j), keep = self.gather(X, M) # [Q, 17, 4], [Q] x3, [Q] or None
 
             if len(b) == 0:
                 #edge case where no query cells at curr level
@@ -164,13 +168,15 @@ class RASA(nn.Module):
             # network step: new values of the query cells
             # x_new, W = self.local_update(taps, l, return_attn)     # [Q, 4]
             x_new, W = self.chunked_update(taps, l, return_attn)     # [Q, 4]
+            if keep is not None:    # drop computed cells that are not this level's (tiles)
+                x_new, b, i, j = x_new[keep], b[keep], i[keep], j[keep]
+                W = [w[keep] for w in W]
             Xl = X.clone()
             Xl[b, :, i, j] = x_new
 
             X_new.append(Xl)
             levels.append((x_new,(b, i, j)))
             attn.append(W)
-
 
         # ---- Make the levels agree ----
         Y0 = level_consistency(X_new, Ms, self.gamma)[0]
@@ -184,5 +190,3 @@ class RASA(nn.Module):
         if return_attn:
             out['attn'] = attn
         return dX0, out
-
-
