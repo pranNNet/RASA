@@ -14,8 +14,6 @@ from model.rpa.payload import payload
 from model.rpa.embed import Encoder
 from model.rpa.stencil_heads import StencilHeads
 
-
-
 class RPA(RASA):
     def build_network(self, cfg):
         self.Encoder = Encoder(
@@ -49,7 +47,7 @@ class RPA(RASA):
         x_new [Q, 4], W list: router maps [Q, 4, 17] per layer, then stencil-head maps [Q, H, 17]
         '''
         phi = payload(taps)     # [Q, 17, 12]
-        Eq, Et, feat = self.Encoder(taps, phi, l)       # [Q, d], [Q, 17, d], [Q, 18, 6]
+        Eq, Et, feat = self.Encoder(taps, phi, l)       # [Q, d], [Q, 17, d], [Q, 17, 6]
 
         if return_attn:
             h, W = self.Router(Eq, Et, return_attn=True)
@@ -61,4 +59,3 @@ class RPA(RASA):
 
         # no need for output scaling
         return taps[:, CENTER] + delta, W
-

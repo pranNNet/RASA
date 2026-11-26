@@ -27,7 +27,7 @@ class RFA(RASA):
             d_model = cfg['attn']['d_model'],
             dt = cfg['physics']['domain']['dt'],
             dx = cfg['physics']['domain']['Lx']/cfg['physics']['domain']['Nx'],
-            c_inf = self.c_inf,
+            a_inf = self.a_inf,
             scales = cfg['embed']['scales']
         )
 

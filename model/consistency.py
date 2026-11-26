@@ -7,33 +7,28 @@ import torch
 import torch.nn.functional as F
 
 # -------------------------------------- HELPERS --------------------------------------
-# All conversions here work on MODEL variables (see RASA.to_model_vars):
-#   rho' = rho/rho_inf, u' = u/c_inf, P' = P/P_inf, with c_inf = sqrt(gamma P_inf/rho_inf).
-# Writing the energy E = P/(gamma-1) + 1/2 rho |u|^2 in those variables and dividing
-# by P_inf gives
-#   E' = P'/(gamma-1) + 1/2 * gamma * rho' |u'|^2      (the extra gamma = rho_inf c_inf^2 / P_inf)
-# rho', rho'u', rho'v', E' are the raw conserved values divided by fixed numbers,
-# so their 2x2 averages are still exact averages of mass, momentum and energy.
 def to_conservative(W, gamma = 1.4):
     """
-    Model primitives (log rho', u', v', log P') [B, 4, h, w] 
+    Primitives (log rho, u, v, log p) [B, 4, h, w] 
     -> 
-    scaled conserved (rho', rho'u', rho'v', E').
+    conserved (rho, rho u, rho v, E).
+
+    - based on choice of reference scales (P_inf, a_inf, rho_inf)
     """
 
     rho, u, v, P = W[:, 0].exp(), W[:, 1], W[:, 2], W[:, 3].exp()
-    E = P/ (gamma - 1) + 0.5 * gamma * rho * (u**2 + v**2)   # gamma: see note above
+    E = P/ (gamma - 1) + 0.5 * gamma *rho * (u**2 + v**2)
     return torch.stack([rho, rho*u, rho*v, E], dim=1)
 
 def to_primitive(U, gamma = 1.4):
     """
-    scaled conserved (rho', rho'u', rho'v', E').
+    conserved (rho, rho u, rho v, E).
     -> 
-    Model primitives (log rho', u', v', log P') [B, 4, h, w] 
+    Primitives (log rho, u, v, log p) [B, 4, h, w] 
     """
     rho, mom_x, mom_y, E = U[:, 0], U[:, 1], U[:, 2], U[:, 3]
     u, v = mom_x/rho, mom_y/rho
-    P = (gamma - 1.0) * (E - 0.5 * gamma * rho * (u**2 + v**2))   # inverse of the line above
+    P = (gamma - 1.0) * (E - 0.5 * gamma * rho * (u**2 + v**2))
     return torch.stack([rho.log(), u, v, P.log()], dim=1)
 
 def build_levels(X0, n_levels, gamma = 1.4):
@@ -89,7 +84,7 @@ def minmod_fill(U):
 def level_consistency(Xs, Ms, gamma = 1.4, fill = 'bilinear'):
     '''
     Xs, Ms: lists of M primative and masks arrays, finest first
-    fill: coarse-to-fine fill, 'bilinear' (v1.1 shifted upsample) or 'minmod' (minmod_fill)
+    fill: coarse-to-fine fill, 'bilinear' (upsample) or 'minmod' (minmod_fill)
     Returns a list of M complete primative arrays, same shape Xs
     '''
     M = len(Xs)

@@ -15,10 +15,10 @@ from model.flux.rusanov import speed
 from model.rfa.face_stencil import FACE_OFFSETS, A, B
 
 class Encoder(nn.Module):
-    def __init__(self, N_tap, N_query, d_model, dt, dx, c_inf, scales):
+    def __init__(self, N_tap, N_query, d_model, dt, dx, a_inf, scales):
         super().__init__()
 
-        self.c_inf, self.dt, self.dx = c_inf, dt, dx
+        self.a_inf, self.dt, self.dx = a_inf, dt, dx
 
         self.proj_tap = nn.Linear(N_tap, d_model)
         self.proj_query = nn.Linear(N_query, d_model)
@@ -51,7 +51,7 @@ class Encoder(nn.Module):
 
         # QUERY FEATURES
         lam = torch.maximum(speed(Ra, 0), speed(Rb, 0))
-        cfl = lam * self.c_inf * self.dt / (2**l * self.dx)
+        cfl = lam * self.a_inf * self.dt / (2**l * self.dx)
         lvl = torch.full_like(cfl, float(l))
         jump = (Rb - Ra) / norm                                          # [F, 4]
         query_feat = torch.cat([u_bar / c_bar[:, None], cfl[:, None], lvl[:, None], jump], dim=-1)   # [F, 8]

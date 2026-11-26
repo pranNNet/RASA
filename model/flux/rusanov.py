@@ -2,10 +2,10 @@
 rusanov.py
 
 Shared flux physics for the conservative variants (RPA-C, RFA).
-Scaled variables as in consistency.py: Q = (rho', rho'u', rho'v', E'), speeds in units of c_inf.
+Scaled variables as in consistency.py: Q = (rho', rho'u', rho'v', E'), speeds in units of a_inf.
 Inputs R are model variables (log rho', u', v', log P'), channels last [..., 4].
 In these units the x-flux is (rho'u', rho'u'^2 + P'/gamma, rho'u'v', u'(E' + P')),
-and one step is Q -= (c_inf dt / s) * (face flux differences), s = level spacing.
+and one step is Q -= (a_inf dt / s) * (face flux differences), s = level spacing.
 '''
 import torch
 

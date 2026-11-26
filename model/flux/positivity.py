@@ -7,6 +7,7 @@ steps 1-2) is not built yet: the proposal starts with the floor and its log only
 '''
 import torch
 
+
 def floor_to_model(U, gamma, rho_min, p_min):
     '''
     U [Q, 4] scaled conserved (rho', rho'u', rho'v', E')

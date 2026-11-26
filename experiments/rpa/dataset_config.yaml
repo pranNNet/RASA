@@ -9,4 +9,3 @@ split:                 # by sample index, in file order: train, then val, then t
   train: 120
   val: 15
   test: 15
-  

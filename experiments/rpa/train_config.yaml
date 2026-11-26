@@ -20,7 +20,7 @@ loss:     # L1 per level, one weighted mean
   level_weight: [1, 1.5, 2]   # v1.1 T1: per-level weight, L0 first (L0 keeps ~60%+ of the loss late in rollouts)
   grad_weight: 0.5        # v1.1 A1: weight of L1 on cell-to-cell differences (full fine field). Starting guess
  
-# Pushforward (K_max > 1): each batch picks K in 1..0000.K_max, runs K-1 steps without grad, trains one step.
+# Pushforward (K_max > 1): each batch picks K in 1..K_max, runs K-1 steps without grad, trains one step.
 stage1:
   K_max: 1
   lr: 1.0e-4

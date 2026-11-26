@@ -1,17 +1,18 @@
 '''
 rpac.py
 
-RPA-C: RPA v1.1 with the cell update swapped for a flux update (proposal "conservative RASA").
+RPA-C: RPA with the cell update swapped for a flux update (proposal "conservative RASA").
 Each query cell sends mass, momentum and energy across its 4 faces:
   send = Rusanov split send + flux units * learned correction (RPA's heads, 16 outputs)
 A face's flux = what one side sends minus what the other sends back, used by both cells,
-so totals are exact. Payload, encoder and router are RPA's. Heads get N_out = 16 from the config.
+so totals are exact. Payload, encoder and router are RPA's; the heads have 16 outputs.
 '''
 import torch
 import torch.nn.functional as F
 
 from model.rpa.rpa import RPA
 from model.rpa.payload import payload
+from model.rpa.stencil_heads import StencilHeads
 from model.stencil import gather_stencil, CENTER
 from model.flux.rusanov import speed, send, flux_scale
 from model.flux.update import conservative_forward
@@ -41,6 +42,18 @@ def ring(M, cov):
     return (nb > 0) & ~M & ~cov
 
 class RPAC(RPA):
+    def build_network(self, cfg):
+        '''RPA's network, with heads that output 16 sends instead of a 4-value delta'''
+        super().build_network(cfg)
+        self.Heads = StencilHeads(
+            d_model = cfg['attn']['d_model'],
+            N_heads = cfg['stencil_heads']['N_heads'],
+            d_k = cfg['stencil_heads']['d_k'],
+            N_tap = cfg['embed']['N_tap'],
+            r_max = cfg['stencil_heads']['r_max'],
+            N_out = cfg['stencil_heads']['N_out']
+        )
+
     def local_update(self, taps, l, return_attn=False):
         '''
         taps [Q, 17, 4] model variables, l level

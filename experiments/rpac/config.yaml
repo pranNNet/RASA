@@ -1,0 +1,49 @@
+# RPA-C model config: same as experiments/RASA/config.yaml (RPA) except name/type, stencil_heads.N_out and the flux section
+
+name: RPAC
+type: RPAC
+model_save_dir: ./experiments/rpac
+
+refine: 
+  n_levels: 3 # M levels: 0 = dx, L1 = 2dx, L2 = 4dx, ... (L{M-1} = 2^(M-1) dx)
+  tol: 0.05
+  dilation: 1 #w: grow L0 by w coarse cells on each side
+
+stencil:
+
+embed:
+  N_tap: 6
+  N_query: 4  # Mach (2), level, cfl
+
+attn:
+  d_model: 64
+  N_attn_layers: 2
+  N_heads: 4
+  N_hidden: 128
+
+stencil_heads:  # replaces decoder
+  N_heads: 16
+  d_k: 8
+  r_max: 2.0
+  N_out: 16   # sends: 4 directions (E, W, N, S) x 4 conserved variables
+
+flux:   # conservative update (shared with RFA)
+  fill: minmod       # coarse-to-fine fill: minmod (limited) or bilinear (RASA/RPA upsample)
+  rho_min: 1.0e-6    # floor on rho' (model units). Starting guess
+  p_min: 1.0e-6      # floor on P' (model units). Starting guess
+
+execution:
+  chunk_size: 32768   # cells per network pass (null = all at once). Starting guess for 8 GB
+  checkpoint: true    # recompute each chunk in backward to save memory (training only)
+
+physics:
+  gamma: 1.4
+  domain:
+    Lx: 1.0
+    Ly: 1.0
+    Nx: 256
+    Ny: 256
+    dt: 0.0025
+  scale:
+    rho_inf: 1.0
+    P_inf: 1.0

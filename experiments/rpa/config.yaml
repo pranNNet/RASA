@@ -1,6 +1,6 @@
 # RASA model config
 
-name: v1.1_RPA
+name: RPA
 type: RPA
 model_save_dir: ./experiments/rpa
 
@@ -8,10 +8,6 @@ refine:
   n_levels: 3 # M levels: 0 = dx, L1 = 2dx, L2 = 4dx, ... (L{M-1} = 2^(M-1) dx)
   tol: 0.05
   dilation: 1 #w: grow L0 by w coarse cells on each side
-
-execution:
-  chunk_size: 32768
-  checkpoint: True
 
 stencil:
 
@@ -25,12 +21,14 @@ attn:
   N_heads: 4
   N_hidden: 128
 
-
 stencil_heads:  # replaces decoder
   N_heads: 16
   d_k: 8
   r_max: 2.0
 
+execution:
+  chunk_size: 32768   # cells per network pass (null = all at once). Starting guess for 8 GB
+  checkpoint: true    # recompute each chunk in backward to save memory (training only)
 
 physics:
   gamma: 1.4

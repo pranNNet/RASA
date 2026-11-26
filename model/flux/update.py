@@ -46,7 +46,7 @@ def reflux(Fx, Fy, Fx_fine, Fy_fine, cov):
 
 def update_cells(X, Fx, Fy, M, k, gamma, rho_min, p_min):
     '''
-    X [B, 4, n, n] model variables, faces Fx, Fy, M [B, n, n] bool, k = c_inf dt / s
+    X [B, 4, n, n] model variables, faces Fx, Fy, M [B, n, n] bool, k = a_inf dt / s
     ->
     x_new [Q, 4] model variables of the M cells, (b, i, j), number of floored cells
     Q_new = Q - k (F_E - F_W + F_N - F_S), only at the M cells.
@@ -83,7 +83,7 @@ def conservative_forward(model, X0_raw, level_faces, return_levels=False, return
             Fx, Fy = reflux(Fx, Fy, Fx_f, Fy_f, cov)
         Fx_f, Fy_f = Fx, Fy
 
-        k = model.c_inf * dom['dt'] / (2**l * dx)
+        k = model.a_inf * dom['dt'] / (2**l * dx)
         x_new, (b, i, j), n = update_cells(X, Fx, Fy, M, k, gamma, fcfg['rho_min'], fcfg['p_min'])
         Xl = X.clone()
         Xl[b, :, i, j] = x_new
